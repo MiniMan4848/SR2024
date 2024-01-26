@@ -162,7 +162,7 @@ def approach(ID,distance_of_approach=0):
         while dist > distance_of_approach:
             if not align(ID):
                 break
-            forward(0.5)
+            forward(0.55)
             all_markers = get_seen_markers()
             seen_marker_ids = [i[0] for i in all_markers]
             robot.sleep(0.1)
@@ -206,13 +206,13 @@ def seek_asteroid():
             stop_moving()
 
 
-def clamp_spaceship():
+def clamp_spaceship(zone):
     ID = None
     while ID is None:
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
-            if i in spaceships[home_zone]:
+            if i in spaceships[zone]:
                 ID = i
                 break
         if ID is None:
@@ -227,11 +227,14 @@ def clamp_spaceship():
     servo_board.servos[2].position = 0.5
     robot.sleep(1.5)
     while robot.arduino.pins[A4].analog_read() > 0.25 and robot.arduino.pins[A0].analog_read() > 0.05  and  robot.arduino.pins[A1].analog_read() > 0.05:
-        forward(0.2)
+        forward(0.3)
         robot.sleep(0.1)
     stop_moving()
-    servo_board.servos[2].position = -0.08
+    servo_board.servos[2].position = 0
     robot.sleep(1)
+    reverse(0.2)
+    robot.sleep(1)
+    stop_moving()
 
 
 def double_asteroid_collection():
@@ -351,7 +354,6 @@ def scoop_asteroid_collection():
     return_home()
     deposit_into_spaceship()
 
-clamp_spaceship()
 
 #TODO - make sure asteroid in grasp before moving on -NEEDS WORK MAYBE, currently only applies to standard collection
 #Don't try to grab asteroids inside other spaceships -DONE
