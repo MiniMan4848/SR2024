@@ -35,6 +35,27 @@ def rotate_left(speed):
     motor1.power = -speed
     motor2.power = speed
 
+def rotate_left_90_degrees():
+    rotate_left(0.2)
+    robot.sleep(0.7)
+    stop_moving()
+
+def rotate_right_90_degrees():
+    rotate_right(0.2)
+    robot.sleep(0.7)
+    stop_moving()
+
+def forward_spec_distance(distance):
+    forward(0.3)
+    robot.sleep(distance/352)
+    stop_moving()
+    
+def reverse_spec_distance(distance):
+    reverse(0.3)
+    robot.sleep(distance/352)
+    stop_moving()
+
+
 def stop_moving():
     motor1.power = BRAKE
     motor2.power = BRAKE
@@ -61,7 +82,7 @@ def get_seen_markers():
                     type = 'spaceship'+str(i)
         
         output.append([marker.id, marker.position.distance,
-          marker.position.horizontal_angle,type])
+          marker.position.horizontal_angle,type,marker.orientation.yaw])
     return output
 
 def get_nearest_asteroid():
@@ -73,12 +94,12 @@ def get_nearest_asteroid():
             asters.append(all_markers[i])
             ids.append(all_markers[i][0])
     
-    return sorted(asters,key=lambda x: (x[1]))[0] if len(asters) > 0 else [None,None,None,None]
+    return sorted(asters,key=lambda x: (x[1]))[0] if len(asters) > 0 else [None,None,None,None,None]
 
    
 
 def align(ID):
-    sensitivity = 0.04
+    sensitivity = 0.01
     camera_to_front_of_bot_distance = 400
     
     angle = 1
@@ -353,7 +374,6 @@ def scoop_asteroid_collection():
     robot.sleep(0.5)
     return_home()
     deposit_into_spaceship()
-
 
 #TODO - make sure asteroid in grasp before moving on -NEEDS WORK MAYBE, currently only applies to standard collection
 #Don't try to grab asteroids inside other spaceships -DONE
