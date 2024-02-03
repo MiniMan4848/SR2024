@@ -11,6 +11,7 @@ home_zone = robot.zone
 home_wall_markers = walls[home_zone]
 
 captured_asteroids = []
+start_time = robot.time()
 
 motor1 = robot.motor_board.motors[0]
 motor2 = robot.motor_board.motors[1]
@@ -99,11 +100,13 @@ def get_nearest_asteroid():
    
 
 def align(ID):
-    sensitivity = 0.01
+    sensitivity = 0.04
     camera_to_front_of_bot_distance = 400
     
     angle = 1
-    while angle > sensitivity or angle < -sensitivity:
+    safety_counter = 0
+    while angle > sensitivity or angle < -sensitivity and safety_counter < 500:
+        safety_counter+=1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         seen_marker_dists = [i[1] for i in all_markers]
@@ -125,11 +128,13 @@ def align(ID):
                 rotate_left(1)
                 robot.sleep(0.01)
                 stop_moving()
-    return True 
+    return True if safety_counter < 500 else False
 
 def return_home():
     ID = None
-    while ID is None:
+    safety_counter = 0
+    while ID is None and safety_counter < 100:
+        safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
@@ -139,14 +144,20 @@ def return_home():
         if ID is None:
             rotate_right(1)
             robot.sleep(0.02)
-            reverse(0.1)
+            forward(0.1)
             robot.sleep(0.01)
             stop_moving()
-    approach(ID,600)
+    if safety_counter < 100:
+        approach(ID,600)
+    else:
+        reverse_spec_distance(300)
+        return_home()
  
 def deposit_into_spaceship():
     ID = None
-    while ID is None:
+    safety_counter = 0
+    while ID is None and safety_counter < 100:
+        safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
@@ -159,20 +170,28 @@ def deposit_into_spaceship():
             reverse(0.1)
             robot.sleep(0.01)
             stop_moving()
-    approach(ID)
-    servo_board.servos[2].position = 1
-    robot.sleep(1)
-    while robot.arduino.pins[A4].analog_read() > 0.25 and robot.arduino.pins[A0].analog_read() > 0.05  and  robot.arduino.pins[A1].analog_read() > 0.05:
-        forward(0.2)
-        robot.sleep(0.1)
-    stop_moving()
-    servo_board.servos[0].position = -1
-    servo_board.servos[1].position = -1
-    robot.sleep(0.5)
-    reverse(0.5)
-    robot.sleep(1)
-    stop_moving()
-    grabber_normal_position()
+    
+    if safety_counter < 100:
+        approach(ID)
+        servo_board.servos[2].position = 1
+        robot.sleep(1)
+        safety_counter = 0
+        while robot.arduino.pins[A0].analog_read() > 0.1  and  robot.arduino.pins[A1].analog_read() > 0.1  and  robot.arduino.pins[A4].analog_read() > 0.15 and safety_counter < 25:
+            forward(0.3)
+            robot.sleep(0.1)
+            safety_counter += 1
+        stop_moving()
+        servo_board.servos[0].position = -1
+        servo_board.servos[1].position = -1
+        robot.sleep(0.5)
+        reverse(0.5)
+        robot.sleep(1)
+        stop_moving()
+        grabber_normal_position()
+    
+    else:
+        reverse_spec_distance(300)
+        deposit_into_spaceship()
     
  
 def approach(ID,distance_of_approach=0):
@@ -180,18 +199,27 @@ def approach(ID,distance_of_approach=0):
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         dist = all_markers[seen_marker_ids.index(ID)][1]
-        while dist > distance_of_approach:
-            if not align(ID):
+        prev_dist = None
+        safety_counter = 0
+        while dist > distance_of_approach and safety_counter < 50:
+            if not align(ID) or (prev_dist is not None and dist>(prev_dist+5)):
                 break
             forward(0.55)
             all_markers = get_seen_markers()
             seen_marker_ids = [i[0] for i in all_markers]
             robot.sleep(0.1)
+            prev_dist = dist
             dist = all_markers[seen_marker_ids.index(ID)][1]
+            safety_counter += 1
         stop_moving()
-        if ID in asteroids:
+        if ID in asteroids and safety_counter<50:
             captured_asteroids.append(ID)
             print(home_zone,': captured - ',captured_asteroids)
+        elif safety_counter>=50:
+            reverse(1)
+            robot.sleep(0.3)
+            stop_moving()
+
     except:
         stop_moving()
         print(home_zone,': Could not see marker ' ,ID,' to approach')
@@ -212,7 +240,9 @@ def grabber_normal_position():
 
 def seek_asteroid():
     ID = None
-    while ID is None:
+    safety_counter = 0
+    while ID is None and safety_counter < 100:
+        safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
@@ -220,16 +250,22 @@ def seek_asteroid():
                 ID = i
                 break
         if ID is None:
-            rotate_left(1)
+            rotate_left(0.5)
             robot.sleep(0.1)
-            reverse(0.1)
-            robot.sleep(0.01)
+            reverse(0.2)
+            robot.sleep(0.02)
             stop_moving()
+    if safety_counter >= 100:
+        return False
+    else:
+        return True
 
 
 def clamp_spaceship(zone):
     ID = None
-    while ID is None:
+    safety_counter = 0
+    while ID is None and safety_counter < 100:
+        safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
@@ -242,20 +278,25 @@ def clamp_spaceship(zone):
             reverse(0.1)
             robot.sleep(0.01)
             stop_moving()
-    approach(ID,400)
-    servo_board.servos[0].position = -1
-    servo_board.servos[1].position = -1
-    servo_board.servos[2].position = 0.5
-    robot.sleep(1.5)
-    while robot.arduino.pins[A4].analog_read() > 0.25 and robot.arduino.pins[A0].analog_read() > 0.05  and  robot.arduino.pins[A1].analog_read() > 0.05:
-        forward(0.3)
-        robot.sleep(0.1)
-    stop_moving()
-    servo_board.servos[2].position = 0
-    robot.sleep(1)
-    reverse(0.2)
-    robot.sleep(1)
-    stop_moving()
+    if safety_counter < 100:
+        approach(ID,400)
+        servo_board.servos[0].position = -1
+        servo_board.servos[1].position = -1
+        servo_board.servos[2].position = 0.5
+        robot.sleep(1.5)
+        safety_counter = 0
+        while robot.arduino.pins[A4].analog_read() > 0.25 and robot.arduino.pins[A0].analog_read() > 0.05  and  robot.arduino.pins[A1].analog_read() > 0.05 and safety_counter < 20:
+            forward(0.3)
+            robot.sleep(0.1)
+        stop_moving()
+        servo_board.servos[2].position = 0
+        robot.sleep(1)
+        reverse(0.2)
+        robot.sleep(1)
+        stop_moving()
+    else:
+        reverse_spec_distance(300)
+        clamp_spaceship()
 
 
 def double_asteroid_collection():
@@ -268,7 +309,6 @@ def double_asteroid_collection():
             continuing = False
             for spaceship in spaceships_seen:
                 #THRESHOLD ANGLES AND DISTS FOR BEING DEEMED INSIDE A SHIP TO BE ADJUSTED
-                print(math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))), abs(nearest_aster[2] - spaceship[2]))
                 if math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))) > 600 or abs(nearest_aster[2] - spaceship[2]) > 0.3:
                     pass
                 else:
@@ -296,7 +336,6 @@ def standard_asteroid_collection():
         continuing = False
         for spaceship in spaceships_seen:
             #THRESHOLD ANGLES AND DISTS FOR BEING DEEMED INSIDE A SHIP TO BE ADJUSTED
-            print(math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))), abs(nearest_aster[2] - spaceship[2]))
             if math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))) > 600 or abs(nearest_aster[2] - spaceship[2]) > 0.3:
                 pass
             else:
@@ -329,55 +368,63 @@ def standard_asteroid_collection():
 def scoop_asteroid_collection():
     for rep in range(3):
         continuing = True
+        invalid = False
         while continuing:    
-            seek_asteroid()
-            spaceships_seen = [i for i in get_seen_markers() if i[3][:9] == 'spaceship']
-            nearest_aster = get_nearest_asteroid()
-            continuing = False
-            for spaceship in spaceships_seen:
-                #THRESHOLD ANGLES AND DISTS FOR BEING DEEMED INSIDE A SHIP TO BE ADJUSTED
-                print(math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))), abs(nearest_aster[2] - spaceship[2]))
-                if math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))) > 600 or abs(nearest_aster[2] - spaceship[2]) > 0.3:
-                    pass
-                else:
-                    captured_asteroids.append(nearest_aster[0])
-                    print(nearest_aster[0],'captured by opponent')
-                    continuing = True
+            if seek_asteroid():
+                spaceships_seen = [i for i in get_seen_markers() if i[3][:9] == 'spaceship']
+                nearest_aster = get_nearest_asteroid()
+                if nearest_aster[0] is not None:
+                    continuing = False
+                    for spaceship in spaceships_seen:
+                        #THRESHOLD ANGLES AND DISTS FOR BEING DEEMED INSIDE A SHIP TO BE ADJUSTED
+                        if math.sqrt(nearest_aster[1]**2 + spaceship[1]**2 - (2*nearest_aster[1]*spaceship[1]*math.cos(abs(nearest_aster[2] - spaceship[2])))) > 600 or abs(nearest_aster[2] - spaceship[2]) > 0.3:
+                            pass
+                        else:
+                            captured_asteroids.append(nearest_aster[0])
+                            print(nearest_aster[0],'captured by opponent')
+                            continuing = True
+            else:
+                invalid = True
+                break
+        if not invalid:
+            target_aster = get_nearest_asteroid()
+            approach(target_aster[0])
             
-        target_aster = get_nearest_asteroid()
-        approach(target_aster[0])
-        
-        if rep < 2:
-            forward(0.3)
-            robot.sleep(0.5)
-            stop_moving()
-        else:
-            forward(0.6)
-            robot.sleep(0.9)
-            stop_moving()
-            
-        if rep == 1:
-            grab_asteroid()
-            reverse(0.5)
-            robot.sleep(0.2)
-            rotate_right(0.3)
-            robot.sleep(0.4)
-            stop_moving()
-  
+            if rep < 2:
+                forward(0.3)
+                robot.sleep(0.5)
+                stop_moving()
+            else:
+                safety_counter = 0
+                while robot.arduino.pins[A4].analog_read() > 0.05 and safety_counter < 25:
+                    safety_counter+=1
+                    forward(0.3)
+                    robot.sleep(0.1)
+                    stop_moving()
+                
+            if rep == 1:
+                grab_asteroid()
+                rotate_right(0.1)
+                robot.sleep(2)
+                stop_moving()
     
     return_home()
-    reverse(0.5)
+    return_home()
+    reverse(0.55)
     robot.sleep(0.6)
-    rotate_left(0.3)
+    rotate_left(0.35)
     robot.sleep(0.3)
     forward(0.5)
     robot.sleep(0.5)
     return_home()
     deposit_into_spaceship()
 
+
+
 #TODO - make sure asteroid in grasp before moving on -NEEDS WORK MAYBE, currently only applies to standard collection
 #Don't try to grab asteroids inside other spaceships -DONE
-#Troubleshoot if stuck/don't go after other bots
+#Troubleshoot if stuck -DONE
+#don't go after other bots - WIP
 
 #FINISHING
 #MAKE SURE YOUR SPACESHIP IN YOUR ZONE
