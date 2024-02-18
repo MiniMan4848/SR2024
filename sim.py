@@ -593,43 +593,24 @@ collect_thread = thread_with_trace(target=scoop_asteroid_collection)
 collect_thread.start()
 
 last_time = start_time
-collection_time = 40
+collection_time = 45
 while (robot.time() - start_time) < collection_time:
     safety_timer = (robot.time() - last_time)
     if not collect_thread.is_alive() and (robot.time() - start_time) < collection_time-5:
         collect_thread = thread_with_trace(target=scoop_asteroid_collection)
         last_time = robot.time()
         collect_thread.start()
-    #safety feature sets maximum time before procedure abort at 25 secs
+    #safety feature sets maximum time before procedure abort at 40 secs
     elif safety_timer > 25 and collect_thread.is_alive():
         collect_thread.kill()
         grabber_normal_position()
         reverse(1)
-        robot.sleep(2)
+        robot.sleep(1)
         stop_moving()
+        
 if collect_thread.is_alive():
     collect_thread.kill()
-
-
-endgame_thread = thread_with_trace(target=endgame)
-endgame_thread.start()
-
-last_time = start_time
-endgame_time = 150
-while (robot.time() - start_time) < endgame_time:
-    safety_timer = (robot.time() - last_time)
-    if not endgame_thread.is_alive():
-        endgame_thread = thread_with_trace(target=endgame)
-        last_time = robot.time()
-        endgame_thread.start()
-    #safety feature sets maximum time before procedure abort at 50 secs
-    elif safety_timer > 50 and endgame_thread.is_alive():
-        endgame_thread.kill()
-        grabber_normal_position()
-        reverse(1)
-        robot.sleep(2)
-        stop_moving()
-
+endgame()
 
 
 #TODO
