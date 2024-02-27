@@ -89,14 +89,15 @@ def forward_spec_distance(distance):
     stop_moving()
     
 def reverse_spec_distance(distance):
-    reverse(0.3)
-    robot.sleep(distance/352)
+    reverse(0.4)
+    robot.sleep(distance/469)
     stop_moving()
 
 
 def stop_moving():
     motor1.power = BRAKE
     motor2.power = BRAKE
+    
 
 def coast():
     motor1.power = COAST
@@ -170,7 +171,7 @@ def align(ID):
 def return_home_centre():
     ID = None
     safety_counter = 0
-    while ID is None and safety_counter < 100:
+    while ID is None and safety_counter < 130:
         safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
@@ -184,7 +185,7 @@ def return_home_centre():
             forward(0.1)
             robot.sleep(0.01)
             stop_moving()
-    if safety_counter < 100:
+    if safety_counter < 130:
         approach(ID,600)
     else:
         reverse_spec_distance(500)
@@ -194,7 +195,7 @@ def return_home_centre():
 def return_home():
     ID = None
     safety_counter = 0
-    while ID is None and safety_counter < 100:
+    while ID is None and safety_counter < 130:
         safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
@@ -208,7 +209,7 @@ def return_home():
             forward(0.1)
             robot.sleep(0.01)
             stop_moving()
-    if safety_counter < 100:
+    if safety_counter < 130:
         approach(ID,400)
     else:
         reverse_spec_distance(500)
@@ -218,12 +219,12 @@ def return_home():
 def go_to_zone(zone,approach_len=600):
     ID = None
     safety_counter = 0
-    while ID is None and safety_counter < 100:
+    while ID is None and safety_counter < 130:
         safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
-            if i in walls[zone]:
+            if i in walls[zone][1:6]:
                 ID = i
                 break
         if ID is None:
@@ -232,7 +233,7 @@ def go_to_zone(zone,approach_len=600):
             reverse(0.2)
             robot.sleep(0.02)
             stop_moving()
-    if safety_counter < 100:
+    if safety_counter < 130:
         approach(ID,approach_len)
     else:
         reverse_spec_distance(500)
@@ -242,7 +243,7 @@ def go_to_zone(zone,approach_len=600):
 def deposit_into_spaceship():
     ID = None
     safety_counter = 0
-    while ID is None and safety_counter < 100:
+    while ID is None and safety_counter < 130:
         safety_counter += 1
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
@@ -257,7 +258,8 @@ def deposit_into_spaceship():
             robot.sleep(0.01)
             stop_moving()
     
-    if safety_counter < 100:
+    if safety_counter < 130:
+        approach(ID)
         approach(ID)
         servo_board.servos[2].position = 1
         robot.sleep(1)
@@ -278,7 +280,8 @@ def deposit_into_spaceship():
     else:
         reverse_spec_distance(500)
         deposit_into_spaceship()
-    
+
+
  
 def approach(ID,distance_of_approach=0):
     try:
@@ -305,6 +308,11 @@ def approach(ID,distance_of_approach=0):
             reverse(1)
             robot.sleep(0.3)
             stop_moving()
+            rotate_left(0.2)
+            robot.sleep(0.1)
+            stop_moving()
+            align(ID)
+            approach(ID,distance_of_approach)
 
     except:
         stop_moving()
@@ -366,10 +374,10 @@ def clamp_spaceship(zone):
             stop_moving()
     if safety_counter < 100:
         approach(ID,400)
-        align(ID)
+        approach(ID,400)
         servo_board.servos[0].position = -1
         servo_board.servos[1].position = -1
-        servo_board.servos[2].position = 0.3
+        servo_board.servos[2].position = 0.26
         robot.sleep(1.5)
         safety_counter = 0
         while robot.arduino.pins[A4].analog_read() > 0.25 and robot.arduino.pins[A0].analog_read() > 0.08  and  robot.arduino.pins[A1].analog_read() > 0.08 and safety_counter < 20:
@@ -411,6 +419,7 @@ def double_asteroid_collection():
         
 
     grab_asteroid()
+    return_home_centre()
     return_home_centre()
     deposit_into_spaceship()
  
@@ -529,7 +538,7 @@ def deal_with_egg():
     if safety_counter < 100:
         approach(ID)
         forward_spec_distance(150)
-        servo_board.servos[2].position = -0.2
+        servo_board.servos[2].position = -0.25
         robot.sleep(0.4)
         grab_asteroid()
         robot.sleep(0.2)
@@ -563,12 +572,14 @@ def secure_spaceship():
     forward(0.3)
     robot.sleep(0.5)
     return_home_centre()
+    return_home_centre()
     clamp_spaceship(home_zone)
 
 
     zone_dict = {0:2,1:3,2:0,3:1}
     go_to_zone(zone_dict[home_zone],3500)
     go_to_zone(zone_dict[home_zone],3500)
+    return_home()
     return_home()
     forward_spec_distance(500)
 
@@ -579,30 +590,69 @@ def secure_spaceship():
     robot.sleep(0.5)
 
 def endgame():
-    print('endgame reached')
     stop_moving()
+    grabber_normal_position()
     robot.sleep(0.5)
-    deal_with_egg()
     secure_spaceship()
+    deal_with_egg()
     
+    
+def initial_egg_grab():
+    servo_board.servos[2].position = -0.45
+    rotate_left(0.5)
+    robot.sleep(0.2)
+    forward(1)
+    robot.sleep(0.6)
+    rotate_right(1)
+    robot.sleep(0.31)
+    align(egg[0])
+    forward(1)
+    robot.sleep(1.4)
+    stop_moving()
+    align(egg[0])
+    forward(0.6)
+    robot.sleep(0.3)
+    stop_moving()
+    grab_asteroid()
+    reverse_spec_distance(550)
+    target = home_zone+1
+    if target>3:
+        target = 0
+    go_to_zone(target,500)
+    go_to_zone(target,500)
+    reverse_spec_distance(300)
+    grabber_normal_position()
+
+
+if random.randint(1,3) > 0:
+    initial_egg_grab()
+scoop_asteroid_collection()
+for _ in range(2):
+    if robot.time()-start_time < 80:
+        print('double collection beginning')
+        double_asteroid_collection()
+while True:
+    print('endgame beginning')
+    endgame()
 
 
 
-
+'''
 collect_thread = thread_with_trace(target=scoop_asteroid_collection)
 collect_thread.start()
 
 last_time = start_time
-collection_time = 60
+collection_time = 80
 while (robot.time() - start_time) < collection_time:
     safety_timer = (robot.time() - last_time)
     if not collect_thread.is_alive() and (robot.time() - start_time) < collection_time-5:
         collect_thread = thread_with_trace(target=scoop_asteroid_collection)
         last_time = robot.time()
         collect_thread.start()
-    #safety feature sets maximum time before procedure abort at 40 secs
-    elif safety_timer > 40 and collect_thread.is_alive():
+    #safety feature sets maximum time before procedure abort at 45 secs
+    elif safety_timer > 50 and collect_thread.is_alive():
         collect_thread.kill()
+        robot.sleep(0.5)
         grabber_normal_position()
         reverse(1)
         robot.sleep(1)
@@ -610,15 +660,10 @@ while (robot.time() - start_time) < collection_time:
         
 if collect_thread.is_alive():
     collect_thread.kill()
-endgame()
+robot.sleep(0.1)
 
-
-#TODO
-#Don't try to grab asteroids inside other spaceships -DONE
-#Troubleshoot if stuck -DONE
-#don't go after other bots - WIP
-
-#FINISHING
-#MAKE SURE YOUR SPACESHIP IN YOUR ZONE -DONE
-#KICK OUT EGG -DONE
-
+start_time = robot.time()
+endgame_time = 150-collection_time
+while (robot.time() - start_time) < endgame_time:
+    endgame()
+'''
