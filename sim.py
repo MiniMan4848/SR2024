@@ -4,40 +4,6 @@ import threading
 import sys
 import random
 
-
-class thread_with_trace(threading.Thread):
-  def __init__(self, *args, **keywords):
-    threading.Thread.__init__(self, *args, **keywords)
-    self.killed = False
- 
-  def start(self):
-    self.__run_backup = self.run
-    self.run = self.__run     
-    threading.Thread.start(self)
- 
-  def __run(self):
-    sys.settrace(self.globaltrace)
-    self.__run_backup()
-    self.run = self.__run_backup
-
- #these two functions are added to thread.run so that a system exit is called in self.kill()
- #thread can therefore be terminated properly compared with the regular thread class
-  def globaltrace(self, frame, event, arg):
-    if event == 'call':
-      return self.localtrace
-    else:
-      return None
- 
-  def localtrace(self, frame, event, arg):
-    if self.killed:
-      if event == 'line':
-        raise SystemExit()
-    return self.localtrace
- 
-  def kill(self):
-    self.killed = True
-
-
 robot = Robot()
 
 walls = [[0,1,2,3,4,5,6],[7,8,9,10,11,12,13],[14,15,16,17,18,19,20],[21,22,23,24,25,26,27]]
@@ -224,7 +190,7 @@ def go_to_zone(zone,approach_len=600):
         all_markers = get_seen_markers()
         seen_marker_ids = [i[0] for i in all_markers]
         for i in seen_marker_ids:
-            if i in walls[zone][1:6]:
+            if i in [walls[zone][3]]:
                 ID = i
                 break
         if ID is None:
@@ -306,10 +272,10 @@ def approach(ID,distance_of_approach=0):
             print(home_zone,': captured - ',captured_asteroids)
         elif safety_counter>=50:
             reverse(1)
-            robot.sleep(0.3)
+            robot.sleep(0.5)
             stop_moving()
             rotate_left(0.2)
-            robot.sleep(0.1)
+            robot.sleep(0.2)
             stop_moving()
             align(ID)
             approach(ID,distance_of_approach)
@@ -354,6 +320,29 @@ def seek_asteroid():
     else:
         return True
 
+'''
+def true_align(ID):
+    all_markers = get_seen_markers()
+    seen_marker_ids = [i[0] for i in all_markers]
+    marker = all_markers[seen_marker_ids.index(ID)]
+    yaw = marker[4]
+    if yaw > 0:
+        rotate_left(0.2)
+        ang = (math.pi/2)-yaw
+        print(ang)
+        robot.sleep(0.7*(ang/90))
+        stop_moving()
+        forward_spec_distance(marker[1]*math.sin(yaw))
+        rotate_right_90_degrees()
+    else:
+        rotate_right(0.2)
+        ang = (math.pi/2)+yaw
+        print(ang)
+        robot.sleep(0.7*(ang/90))
+        stop_moving()
+        forward_spec_distance(marker[1]*math.sin(-1*yaw))
+        rotate_left_90_degrees()
+'''
 
 def clamp_spaceship(zone):
     ID = None
@@ -373,6 +362,8 @@ def clamp_spaceship(zone):
             robot.sleep(0.01)
             stop_moving()
     if safety_counter < 100:
+        #align(ID)
+        #true_align(ID)
         approach(ID,400)
         approach(ID,400)
         servo_board.servos[0].position = -1
@@ -398,7 +389,8 @@ def double_asteroid_collection():
     for rep in range(2):
         continuing = True
         while continuing:    
-            seek_asteroid()
+            if not seek_asteroid():
+                break
             spaceships_seen = [i for i in get_seen_markers() if i[3][:9] == 'spaceship']
             nearest_aster = get_nearest_asteroid()
             continuing = False
@@ -538,7 +530,7 @@ def deal_with_egg():
     if safety_counter < 100:
         approach(ID)
         forward_spec_distance(150)
-        servo_board.servos[2].position = -0.25
+        servo_board.servos[2].position = -0.3
         robot.sleep(0.4)
         grab_asteroid()
         robot.sleep(0.2)
@@ -593,8 +585,8 @@ def endgame():
     stop_moving()
     grabber_normal_position()
     robot.sleep(0.5)
-    secure_spaceship()
     deal_with_egg()
+    secure_spaceship()
     
     
 def initial_egg_grab():
@@ -615,16 +607,20 @@ def initial_egg_grab():
     stop_moving()
     grab_asteroid()
     reverse_spec_distance(550)
+
     target = home_zone+1
     if target>3:
         target = 0
     go_to_zone(target,500)
     go_to_zone(target,500)
-    reverse_spec_distance(300)
     grabber_normal_position()
+    reverse_spec_distance(800)
+    rotate_left_90_degrees()
+    
 
+clamp_spaceship(home_zone)
 
-if random.randint(1,3) > 0:
+if random.randint(1,3) > 2:
     initial_egg_grab()
 scoop_asteroid_collection()
 for _ in range(2):
@@ -634,36 +630,3 @@ for _ in range(2):
 while True:
     print('endgame beginning')
     endgame()
-
-
-
-'''
-collect_thread = thread_with_trace(target=scoop_asteroid_collection)
-collect_thread.start()
-
-last_time = start_time
-collection_time = 80
-while (robot.time() - start_time) < collection_time:
-    safety_timer = (robot.time() - last_time)
-    if not collect_thread.is_alive() and (robot.time() - start_time) < collection_time-5:
-        collect_thread = thread_with_trace(target=scoop_asteroid_collection)
-        last_time = robot.time()
-        collect_thread.start()
-    #safety feature sets maximum time before procedure abort at 45 secs
-    elif safety_timer > 50 and collect_thread.is_alive():
-        collect_thread.kill()
-        robot.sleep(0.5)
-        grabber_normal_position()
-        reverse(1)
-        robot.sleep(1)
-        stop_moving()
-        
-if collect_thread.is_alive():
-    collect_thread.kill()
-robot.sleep(0.1)
-
-start_time = robot.time()
-endgame_time = 150-collection_time
-while (robot.time() - start_time) < endgame_time:
-    endgame()
-'''
